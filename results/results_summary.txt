@@ -1,15 +1,17 @@
 Gradient Inverse Smoothing VS Simple Arithmetic Smoothing Results Summary
--------------------------------------------
-Selected Image : dogimg.jpg
+-----------------------------------------------------------------------
+Selected Image : jakarta-satellite_900x475.png
 Sigma (Noise)  : 25.0
-Kernel Size    : 5
+Kernel Size    : 3
 
-MSE (Gradient Inverse): 245.7547
-MSE (Simple Mean):      81.8419
--------------------------------------------
+MSE (Gradient Inverse): 317.7962
+MSE (Simple Mean):      323.9408
+-----------------------------------------------------------------------
 Files saved:
-- original.png
-- noisy.png
-- gradinv_.png
-- mean_filter.png
+- 01_original.png
+- 02_noisy.png
+- 03_gradinv.png
+- 04_mean_filter.png
 - montage.png
+- comparison_gif_vs_mean.png
+
