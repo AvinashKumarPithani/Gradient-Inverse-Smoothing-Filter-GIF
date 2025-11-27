@@ -17,6 +17,11 @@ img_label = None
 sigma_entry = None
 kernel_entry = None
 
+# UI sizing constants (pixels)
+PREVIEW_SIZE = 400        # size of the image preview in the GUI
+MONTAGE_THUMB = 400       # size for thumbnails in the montage
+COMPARISON_SIZE = 500     # size for the side-by-side comparison
+
 # ---------------- GUI / Utility functions --------------------
 
 def select_image():
@@ -29,7 +34,8 @@ def select_image():
     if img_path:
         try:
             img_preview = Image.open(img_path).convert("L")
-            img_preview.thumbnail((200, 200))
+            # Fit the preview into the preview box while keeping aspect ratio
+            img_preview.thumbnail((PREVIEW_SIZE, PREVIEW_SIZE), Image.LANCZOS)
             tk_img = ImageTk.PhotoImage(img_preview)
             img_label.config(image=tk_img)
             img_label.image = tk_img
@@ -87,13 +93,13 @@ def run_process():
     cv2.imwrite(os.path.join(out_dir, "04_mean_filter.png"), mean_out)
 
     # ---------------------- Creating Montage with Separators ------------------------
-    h = 200
+    h = MONTAGE_THUMB
     sep = add_separator(h, thickness=15, color=255)  # vertical white separator
 
-    img_res   = cv2.resize(img, (200,200))
-    noisy_res = cv2.resize(noisy, (200,200))
-    gis_res   = cv2.resize(gis, (200,200))
-    mean_res  = cv2.resize(mean_out, (200,200))
+    img_res   = cv2.resize(img, (MONTAGE_THUMB, MONTAGE_THUMB))
+    noisy_res = cv2.resize(noisy, (MONTAGE_THUMB, MONTAGE_THUMB))
+    gis_res   = cv2.resize(gis, (MONTAGE_THUMB, MONTAGE_THUMB))
+    mean_res  = cv2.resize(mean_out, (MONTAGE_THUMB, MONTAGE_THUMB))
 
     montage = np.hstack([
         img_res, sep,
@@ -105,13 +111,13 @@ def run_process():
     cv2.imwrite(os.path.join(out_dir, "montage.png"), montage)
 
     # ------------------ GIF vs Mean comparison (with separator) ------------------
-    h2 = 300
+    h2 = COMPARISON_SIZE
     sep2 = add_separator(h2, thickness=20, color=255)
 
     gif_vs_mean = np.hstack([
-        cv2.resize(gis, (300,300)),
+        cv2.resize(gis, (COMPARISON_SIZE, COMPARISON_SIZE)),
         sep2,
-        cv2.resize(mean_out, (300,300))
+        cv2.resize(mean_out, (COMPARISON_SIZE, COMPARISON_SIZE))
     ])
 
     cv2.imwrite(os.path.join(out_dir, "comparison_gif_vs_mean.png"), gif_vs_mean)
@@ -145,12 +151,54 @@ def run_process():
         # In environments without display (e.g., remote server), skip imshow
         pass
 
-    messagebox.showinfo(
-        "Smoothing Completed",
-        f"Saved results in folder:\n{out_dir}\n\n"
-        f"MSE (Grad Inv): {mse_gis:.2f}\n"
-        f"MSE (Mean): {mse_mean:.2f}"
-    )
+    # Showing a larger custom pop-up window instead of the small default messagebox
+    try:
+        result_win = Toplevel(root)
+        result_win.title("Smoothing Completed")
+        result_win.geometry("640x320")
+        result_win.minsize(520, 280)
+        result_win.transient(root)
+        result_win.grab_set()
+
+        Label(result_win, text="Smoothing Completed", font=("Helvetica", 16, "bold")).pack(pady=(12, 6))
+
+        msg_text = (
+            f"Saved results in folder:\n{os.path.abspath(out_dir)}\n\n"
+            f"MSE (Grad Inv): {mse_gis:.2f}\n"
+            f"MSE (Mean): {mse_mean:.2f}"
+        )
+
+        Label(result_win, text=msg_text, font=("Helvetica", 12), justify=LEFT, anchor="w").pack(padx=16)
+
+        btn_frame = Frame(result_win)
+        btn_frame.pack(pady=14)
+
+        def open_folder():
+            try:
+                if os.name == 'nt':
+                    os.startfile(os.path.abspath(out_dir))
+                else:
+                    # macOS / Linux
+                    import subprocess
+                    import shlex
+                    if sys.platform == 'darwin':
+                        subprocess.Popen(['open', os.path.abspath(out_dir)])
+                    else:
+                        subprocess.Popen(['xdg-open', os.path.abspath(out_dir)])
+            except Exception:
+                messagebox.showinfo("Open Folder", f"Couldn't open folder automatically.\nFolder: {os.path.abspath(out_dir)}")
+
+        Button(btn_frame, text="Open Results Folder", command=open_folder, bg="#4CAF50", fg="white").pack(side=LEFT, padx=8)
+        Button(btn_frame, text="OK", command=result_win.destroy, bg="#2196F3", fg="white").pack(side=LEFT, padx=8)
+
+    except Exception:
+        # Fallback to the default messagebox if anything goes wrong
+        messagebox.showinfo(
+            "Smoothing Completed",
+            f"Saved results in folder:\n{out_dir}\n\n"
+            f"MSE (Grad Inv): {mse_gis:.2f}\n"
+            f"MSE (Mean): {mse_mean:.2f}"
+        )
 
 
 # ------------------- Build GUI Layout ---------------------
@@ -158,12 +206,17 @@ def run_process():
 root = Tk()
 root.title("Gradient Inverse Smoothing Tool")
 
-Label(root, text="Gradient Inverse Smoothing VS Simple Mean Smoothing", font=("Helvetica", 14, "bold")).pack(pady=10)
+# Making the window larger and prevent it from being too small
+root.geometry("1100x700")
+root.minsize(900, 600)
+
+Label(root, text="Gradient Inverse Smoothing VS Simple Mean Smoothing", font=("Helvetica", 16, "bold")).pack(pady=10)
 
 Button(root, text="Select Image", command=select_image, bg="#4CAF50", fg="white").pack(pady=5)
 
-img_label = Label(root, width=200, height=200, bg="#ddd")
-img_label.pack(pady=5)
+# Preview label larger
+img_label = Label(root, width=PREVIEW_SIZE, height=PREVIEW_SIZE, bg="#ddd")
+img_label.pack(pady=8)
 img_label.pack_propagate(False)
 
 frame = Frame(root)
